@@ -1,3 +1,4 @@
+from torch.utils.data import Dataset
 import numpy as np
 import os
 import glob
@@ -32,3 +33,8 @@ s0_box = read_instre_box(c0_s0[0])
 
 s0_img
 s0_box
+
+#%%
+class OSDDataset(Dataset):
+    def __init__(self, class_dirs):
+        self.class_dirs = class_dirs
