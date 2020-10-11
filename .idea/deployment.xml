@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="Always" serverName="crr@104.40.248.85:22 agent">
+    <serverData>
+      <paths name="crr@104.40.248.85:22">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/datadrive/crr/workspace/detr" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="crr@104.40.248.85:22 agent">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/datadrive/crr/workspace/detr" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="crr@51.144.79.65:22 agent (1)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/datadrive/crr/workspace/detr" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
+  </component>
+</project>

@@ -1,0 +1,1 @@
+python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --coco_path /datadrive/crr/datasets/coco --epochs 150 --lr_drop 100
