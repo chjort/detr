@@ -7,6 +7,8 @@ from PIL import Image
 from torch.utils.data import Dataset, DistributedSampler, DataLoader
 
 from datasets.coco import make_coco_transforms
+from util.boxes import box_xywh_to_xyxy
+from util.plot_utils import plot_results
 
 INSTRE_PATH = "/datadrive/crr/datasets/instre"
 TRAIN_PATH = INSTRE_PATH + "/INSTRE-S-TRAIN"
@@ -22,18 +24,6 @@ def read_instre_box(box_file):
         box = f.read().strip("\n").split(" ")
         box = [int(c) for c in box]
     return box
-
-
-def box_xywh_to_cxcywh(x):
-    """ Converts bounding box with format [x0, y0, w, h] to format [center_x, center_y, w, h] """
-    x0, y0, w, h = x
-    b = [
-        x0 + 0.5 * w,
-        y0 + 0.5 * h,
-        w,
-        h
-    ]
-    return b
 
 
 class OSDDataset(Dataset):
@@ -59,7 +49,7 @@ class OSDDataset(Dataset):
         chosen_pair_labels = [read_instre_box(label_file) for label_file in chosen_pair_labels]
 
         chosen_pair_labels = [torch.tensor(box).reshape(-1, 4) for box in chosen_pair_labels]
-        # TODO: Convert boxes to 'cxcywh' from 'x0y0wh' format?
+        chosen_pair_labels = [box_xywh_to_xyxy(box) for box in chosen_pair_labels]
         chosen_pair_labels = [{"boxes": box, "labels": torch.tensor([item], dtype=torch.int64)} for box
                               in chosen_pair_labels]
 
@@ -89,12 +79,13 @@ dataset_train = OSDDataset(class_dirs_train,
 dataset_val = OSDDataset(class_dirs_val,
                          make_coco_transforms("val")
                          )
+# it = iter(dataset_val)
 
-it = iter(dataset_train)
-b = next(it)
-
-b["queries"]
-b["targets"]
+# %%
+# b = next(it)
+# img = b["queries"][0]
+# box = b["queries"][1]["boxes"]
+# plot_results(img, box)
 
 # %%
 if DISTRIBUTED:
@@ -111,4 +102,9 @@ dataloader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train, 
 # %%
 # it = iter(dataloader_train)
 it = iter(dataset_train)
-x, y = next(it)
+b = next(it)
+
+
+b.keys()
+b["queries"][0].shape
+b["queries"][1]

@@ -86,3 +86,23 @@ def masks_to_boxes(masks):
     y_min = y_mask.masked_fill(~(masks.bool()), 1e8).flatten(1).min(-1)[0]
 
     return torch.stack([x_min, y_min, x_max, y_max], 1)
+
+
+def box_denormalize(boxes, img_h, img_w):
+    """
+    Denormalizes bounding box with coordinates between 0 and 1 to have coordinates in original image height and width.
+    Bounding boxes are expected to have format [x0, y0, x1, y1] or [x0, y0, w, h] or [x_center, y_center, w, h].
+
+    :param boxes: List of bounding boxes each with format [x0, y0, x1, y1] or [x0, y0, w, h]
+        or [x_center, y_center, w, h]
+    :type boxes: list[list] or tensorflow.Tensor
+    :param img_h: The height of the image the bounding box belongs to.
+    :type img_h: int or tensorflow.Tensor
+    :param img_w: The width of the image the bounding box belongs to.
+    :type img_w: int or tensorflow.Tensor
+    :return: Normalized bounding boxes.
+    :rtype: tensorflow.Tensor
+    """
+
+    boxes = boxes * torch.tensor([img_w, img_h, img_w, img_h], dtype=torch.float32)  # boxes * [h, w, h, w]
+    return boxes
