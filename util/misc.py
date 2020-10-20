@@ -4,20 +4,20 @@ Misc functions, including distributed helpers.
 
 Mostly copy-paste from torchvision references.
 """
+import datetime
 import os
+import pickle
 import subprocess
 import time
 from collections import defaultdict, deque
-import datetime
-import pickle
 from typing import Optional, List
 
 import torch
 import torch.distributed as dist
-from torch import Tensor
-
 # needed due to empty tensor bug in pytorch and torchvision 0.5
 import torchvision
+from torch import Tensor
+
 if float(torchvision.__version__[:3]) < 0.7:
     from torchvision.ops import _new_empty_tensor
     from torchvision.ops.misc import _output_size
@@ -250,6 +250,7 @@ def get_sha():
 
     def _run(command):
         return subprocess.check_output(command, cwd=cwd).decode('ascii').strip()
+
     sha = 'N/A'
     diff = "clean"
     branch = 'N/A'
@@ -263,6 +264,17 @@ def get_sha():
         pass
     message = f"sha: {sha}, status: {diff}, branch: {branch}"
     return message
+
+
+def collate_fn_os(batch):
+
+    queries = [b["queries"] for b in batch]
+    targets = [b["targets"] for b in batch]
+
+    batch = {"queries": collate_fn(queries),
+             "targets": collate_fn(targets)}
+
+    return batch
 
 
 def collate_fn(batch):

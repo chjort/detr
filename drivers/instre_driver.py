@@ -9,8 +9,10 @@ from torch.utils.data import Dataset, DistributedSampler, DataLoader
 from datasets.coco import make_coco_transforms
 from util.boxes import box_xywh_to_xyxy
 from util.plot_utils import plot_results
+from util.misc import collate_fn, collate_fn_os
 
-INSTRE_PATH = "/datadrive/crr/datasets/instre"
+# INSTRE_PATH = "/datadrive/crr/datasets/instre"
+INSTRE_PATH = "/home/ch/datasets/instre"
 TRAIN_PATH = INSTRE_PATH + "/INSTRE-S-TRAIN"
 TEST_PATH = INSTRE_PATH + "/INSTRE-S-TEST"
 
@@ -63,6 +65,9 @@ class OSDDataset(Dataset):
         sample = {"queries": (query_img, query_labels),
                   "targets": (target_img, target_labels)}
         return sample
+        # return (query_img, query_labels)
+        # return {"queries": ("qimg", "qlabels"),
+        #         "targets": ("timg", "tlabels")}
 
 
 # %%
@@ -82,12 +87,6 @@ dataset_val = OSDDataset(class_dirs_val,
 # it = iter(dataset_val)
 
 # %%
-# b = next(it)
-# img = b["queries"][0]
-# box = b["queries"][1]["boxes"]
-# plot_results(img, box)
-
-# %%
 if DISTRIBUTED:
     sampler_train = DistributedSampler(dataset_train)
     sampler_val = DistributedSampler(dataset_val, shuffle=False)
@@ -97,14 +96,17 @@ else:
 
 batch_sampler_train = torch.utils.data.BatchSampler(sampler_train, BATCH_SIZE, drop_last=True)
 
-dataloader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train, num_workers=NUM_WORKERS)
+dataloader_train = DataLoader(dataset_train,
+                              batch_sampler=batch_sampler_train,
+                              collate_fn=collate_fn_os,
+                              num_workers=NUM_WORKERS)
 
 # %%
-# it = iter(dataloader_train)
-it = iter(dataset_train)
+it = iter(dataloader_train)
 b = next(it)
 
+len(b["queries"][0].tensors)
+len(b["queries"][1])
 
-b.keys()
-b["queries"][0].shape
-b["queries"][1]
+len(b["targets"][0].tensors)
+len(b["targets"][1])
