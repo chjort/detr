@@ -3,13 +3,15 @@ from torch.utils.data import DataLoader, DistributedSampler
 
 import util.misc as utils
 from datasets.coco import CocoDetection, make_coco_transforms
+from util.plot_utils import plot_results
 
 # %%
 BATCH_SIZE = 4
 NUM_WORKERS = 2
 distributed = False
 
-COCO_PATH = "/datadrive/crr/datasets/coco"
+# COCO_PATH = "/datadrive/crr/datasets/coco"
+COCO_PATH = "/home/ch/datasets/coco"
 
 dataset_train = CocoDetection(COCO_PATH + "/train2017",
                               COCO_PATH + "/annotations/instances_train2017.json",
@@ -41,12 +43,9 @@ train_it = iter(data_loader_train)
 val_it = iter(data_loader_val)
 
 # %%
-x, y = next(train_it)
+x, y = next(val_it)
 
-# %% sample 0
-x.tensors[0].shape
-y[0]["boxes"]
-y[0]["labels"]
+img = x.tensors[0]
+box = y[0]["boxes"]
 
-len(x.tensors)  # batch_size
-len(y)  # batch_size
+plot_results(img, box)

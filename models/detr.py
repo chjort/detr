@@ -56,12 +56,15 @@ class DETR(nn.Module):
                - "aux_outputs": Optional, only returned when auxilary losses are activated. It is a list of
                                 dictionnaries containing the two above keys for each decoder layer.
         """
+        # TODO: Handle "queries" and "targets" keys in `samples`
         if isinstance(samples, (list, torch.Tensor)):
             samples = nested_tensor_from_tensor_list(samples)
         features, pos = self.backbone(samples)
 
         src, mask = features[-1].decompose()
         assert mask is not None
+
+        # TODO: Pass targets through encoder and into transformer instead of query embeddings.
         hs = self.transformer(self.input_proj(src), mask, self.query_embed.weight, pos[-1])[0]
 
         outputs_class = self.class_embed(hs)
