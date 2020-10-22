@@ -66,7 +66,7 @@ class_dirs_val = glob.glob(os.path.join(TEST_PATH, "*/"))
 
 n_train_classes = len(class_dirs_train)
 n_val_classes = len(class_dirs_val)
-n_classes = n_train_classes + n_val_classes
+args.num_classes = n_train_classes + n_val_classes
 
 train_labels = list(range(n_train_classes))
 val_labels = list(range(n_train_classes, n_train_classes + n_val_classes))
@@ -118,7 +118,7 @@ transformer = Transformer(
 model = OSDETR(
     backbone,
     transformer,
-    num_classes=n_classes,
+    num_classes=args.num_classes,
     num_queries=args.num_queries,
     aux_loss=args.aux_loss,
 )
@@ -146,10 +146,10 @@ outputs = model(qx, tx)
 #%%
 idx = 0
 probas = outputs['pred_logits'].softmax(-1)[idx, :, :-1]
-keep = probas.max(-1).values > 0.2
+keep = probas.max(-1).values > 0.1
 
 img = tx.tensors[idx].detach().cpu()
 boxes = outputs["pred_boxes"][idx, keep].detach().cpu()
-boxes = outputs["pred_boxes"][idx, :10].detach().cpu()
+# boxes = outputs["pred_boxes"][idx, :10].detach().cpu()
 
 plot_results(img, boxes)
