@@ -65,7 +65,7 @@ class Args:
     #   (coco)
     coco_path = "/datadrive/crr/datasets/coco"
 
-    output_dir = ""
+    output_dir = "outputs"
     device = "cuda"
     seed = 42
     start_epoch = 0
