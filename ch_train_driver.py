@@ -1,5 +1,7 @@
 import datetime
+import glob
 import json
+import os
 import random
 import time
 from pathlib import Path
@@ -9,11 +11,11 @@ import torch
 from torch.utils.data import DataLoader, DistributedSampler
 
 import util.misc as utils
-from datasets import get_coco_api_from_dataset
-from datasets.coco import CocoDetection, make_coco_transforms
-from engine import evaluate, train_one_epoch
+from datasets.coco import make_coco_transforms_target, make_coco_transforms_query
+from datasets.osd_dataset import OSDDataset
+from engine import train_one_epoch_os
 from models.backbone import Backbone, Joiner
-from models.detr import DETR, SetCriterion, PostProcess
+from models.detr import OSDETR, SetCriterion, PostProcess
 from models.matcher import HungarianMatcher
 from models.position_encoding import build_position_encoding
 from models.transformer import Transformer
@@ -104,7 +106,7 @@ transformer = Transformer(
     normalize_before=args.pre_norm,
     return_intermediate_dec=True,
 )
-model = DETR(
+model = OSDETR(
     backbone,
     transformer,
     num_classes=args.num_classes,
@@ -150,16 +152,21 @@ optimizer = torch.optim.AdamW(param_dicts, lr=args.lr,
 lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_drop)
 
 # %% PREPARE DATA
-dataset_train = CocoDetection(args.coco_path + "/train2017",
-                              args.coco_path + "/annotations/instances_train2017.json",
-                              transforms=make_coco_transforms("train"),
-                              return_masks=False)
-dataset_val = CocoDetection(args.coco_path + "/val2017",
-                            args.coco_path + "/annotations/instances_val2017.json",
-                            transforms=make_coco_transforms("val"),
-                            return_masks=False)
+INSTRE_PATH = "/datadrive/crr/datasets/instre"
+TRAIN_PATH = INSTRE_PATH + "/INSTRE-S-TRAIN"
+TEST_PATH = INSTRE_PATH + "/INSTRE-S-TEST"
 
-base_ds = get_coco_api_from_dataset(dataset_val)
+class_dirs_train = glob.glob(os.path.join(TRAIN_PATH, "*/"))
+class_dirs_val = glob.glob(os.path.join(TEST_PATH, "*/"))
+
+dataset_train = OSDDataset(class_dirs_train,
+                           query_transforms=make_coco_transforms_query("train"),
+                           target_transforms=make_coco_transforms_target("train")
+                           )
+dataset_val = OSDDataset(class_dirs_val,
+                         query_transforms=make_coco_transforms_query("val"),
+                         target_transforms=make_coco_transforms_target("val")
+                         )
 
 if args.distributed:
     sampler_train = DistributedSampler(dataset_train)
@@ -168,13 +175,30 @@ else:
     sampler_train = torch.utils.data.RandomSampler(dataset_train)
     sampler_val = torch.utils.data.SequentialSampler(dataset_val)
 
-batch_sampler_train = torch.utils.data.BatchSampler(
-    sampler_train, args.batch_size, drop_last=True)
+batch_sampler_train = torch.utils.data.BatchSampler(sampler_train, args.batch_size, drop_last=True)
 
-data_loader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train,
-                               collate_fn=utils.collate_fn, num_workers=args.num_workers)
-data_loader_val = DataLoader(dataset_val, args.batch_size, sampler=sampler_val,
-                             drop_last=False, collate_fn=utils.collate_fn, num_workers=args.num_workers)
+data_loader_train = DataLoader(dataset_train,
+                               batch_sampler=batch_sampler_train,
+                               collate_fn=utils.collate_fn_os,
+                               num_workers=args.num_workers)
+
+data_loader_val = DataLoader(dataset_train,
+                             args.batch_size,
+                             sampler=sampler_val,
+                             collate_fn=utils.collate_fn_os,
+                             drop_last=False,
+                             num_workers=args.num_workers)
+
+#%% PLAYGROUND
+it = iter(data_loader_train)
+b = next(it)
+qx, qy = b["queries"]
+tx, ty = b["targets"]
+qx = qx.to(device)
+tx = tx.to(device)
+ty = [{k: v.to(device) for k, v in t.items()} for t in ty]
+
+out = model(qx, tx)
 
 # %% PREPARE OUTPUTS
 Path(args.output_dir).mkdir(parents=True, exist_ok=True)
@@ -197,9 +221,12 @@ start_time = time.time()
 for epoch in range(args.start_epoch, args.epochs):
     if args.distributed:
         sampler_train.set_epoch(epoch)
-    train_stats = train_one_epoch(
+    train_stats = train_one_epoch_os(
         model, criterion, data_loader_train, optimizer, device, epoch,
         args.clip_max_norm)
+    # train_stats = train_one_epoch(
+    #     model, criterion, data_loader_train, optimizer, device, epoch,
+    #     args.clip_max_norm)
     lr_scheduler.step()
     if args.output_dir:
         checkpoint_paths = [output_dir / 'checkpoint.pth']

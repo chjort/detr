@@ -4,13 +4,15 @@ import os
 import torch
 from torch.utils.data import Dataset, DistributedSampler, DataLoader
 
-from datasets.coco import make_coco_transforms
+from datasets.coco import make_coco_transforms_query, make_coco_transforms_target
 from datasets.osd_dataset import OSDDataset
 from util.misc import collate_fn_os
 from util.plot_utils import plot_results
+import matplotlib.pyplot as plt
 
-# INSTRE_PATH = "/datadrive/crr/datasets/instre"
-INSTRE_PATH = "/home/ch/datasets/instre"
+INSTRE_PATH = "/datadrive/crr/datasets/instre"
+
+# INSTRE_PATH = "/home/ch/datasets/instre"
 TRAIN_PATH = INSTRE_PATH + "/INSTRE-S-TRAIN"
 TEST_PATH = INSTRE_PATH + "/INSTRE-S-TEST"
 
@@ -23,11 +25,22 @@ class_dirs_train = glob.glob(os.path.join(TRAIN_PATH, "*/"))
 class_dirs_val = glob.glob(os.path.join(TEST_PATH, "*/"))
 
 dataset_train = OSDDataset(class_dirs_train,
-                           make_coco_transforms("train")
+                           query_transforms=make_coco_transforms_query("train"),
+                           target_transforms=make_coco_transforms_target("train")
                            )
 dataset_val = OSDDataset(class_dirs_val,
-                         make_coco_transforms("val")
+                         query_transforms=make_coco_transforms_query("val"),
+                         target_transforms=make_coco_transforms_target("val")
                          )
+
+"""
+File "/datadrive/crr/workspace/detr/models/matcher.py", line 74, in forward
+    cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox))
+  File "/datadrive/crr/workspace/detr/util/box_ops.py", line 51, in generalized_box_iou
+    assert (boxes1[:, 2:] >= boxes1[:, :2]).all()
+
+"""
+
 
 # %%
 if DISTRIBUTED:
@@ -39,17 +52,31 @@ else:
 
 batch_sampler_train = torch.utils.data.BatchSampler(sampler_train, BATCH_SIZE, drop_last=True)
 
-dataloader_train = DataLoader(dataset_train,
-                              batch_sampler=batch_sampler_train,
-                              collate_fn=collate_fn_os,
-                              num_workers=NUM_WORKERS)
+data_loader_train = DataLoader(dataset_train,
+                               batch_sampler=batch_sampler_train,
+                               collate_fn=collate_fn_os,
+                               num_workers=NUM_WORKERS)
+
+data_loader_val = DataLoader(dataset_train,
+                             BATCH_SIZE,
+                             sampler=sampler_val,
+                             collate_fn=collate_fn_os,
+                             drop_last=False,
+                             num_workers=NUM_WORKERS)
 
 # %%
-it = iter(dataloader_train)
+# it = iter(data_loader_train)
+it = iter(data_loader_val)
 
 # %%
 b = next(it)
-idx = 0
-img = b["queries"][0].tensors[idx]
-box = b["queries"][1][idx]["boxes"]
-plot_results(img, box)
+
+# %%
+idx = 1
+qimg = b["queries"][0].tensors[idx]
+timg = b["targets"][0].tensors[idx]
+tbox = b["targets"][1][idx]["boxes"]
+
+plt.imshow(qimg.permute(2, 1, 0))
+plt.show()
+plot_results(timg, tbox)
