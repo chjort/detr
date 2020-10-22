@@ -48,8 +48,8 @@ class Args:
     lr_drop = 100  # 200
     clip_max_norm = 0.1
 
-    # resume = "detr-r50-e632da11.pth"
-    resume = ""
+    resume = "detr-r50-e632da11.pth"
+    # resume = ""
 
     # loss
     aux_loss = True
@@ -100,7 +100,7 @@ class_dirs_val = glob.glob(os.path.join(TEST_PATH, "*/"))
 
 n_train_classes = len(class_dirs_train)
 n_val_classes = len(class_dirs_val)
-n_classes = n_train_classes + n_val_classes
+args.num_classes = n_train_classes + n_val_classes
 
 train_labels = list(range(n_train_classes))
 val_labels = list(range(n_train_classes, n_train_classes + n_val_classes))
@@ -157,7 +157,7 @@ transformer = Transformer(
 model = OSDETR(
     backbone,
     transformer,
-    num_classes=n_classes,
+    num_classes=args.num_classes,
     num_queries=args.num_queries,
     aux_loss=args.aux_loss,
 )
@@ -172,7 +172,7 @@ if args.aux_loss:
     weight_dict.update(aux_weight_dict)
 
 losses = ['labels', 'boxes', 'cardinality']
-criterion = SetCriterion(n_classes, matcher=matcher, weight_dict=weight_dict,
+criterion = SetCriterion(args.num_classes, matcher=matcher, weight_dict=weight_dict,
                          eos_coef=args.eos_coef, losses=losses)
 postprocessors = {'bbox': PostProcess()}
 
@@ -209,36 +209,6 @@ lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_drop)
 # ty = [{k: v.to(device) for k, v in t.items()} for t in ty]
 #
 # outputs = model(qx, tx)
-# targets = ty
-#
-# bs, num_queries = outputs["pred_logits"].shape[:2]
-#
-# # We flatten to compute the cost matrices in a batch
-# out_prob = outputs["pred_logits"].flatten(0, 1).softmax(-1)  # [batch_size * num_queries, num_classes]
-# out_bbox = outputs["pred_boxes"].flatten(0, 1)  # [batch_size * num_queries, 4]
-#
-# # Also concat the target labels and boxes
-# tgt_ids = torch.cat([v["labels"] for v in targets])
-# tgt_bbox = torch.cat([v["boxes"] for v in targets])
-#
-# # Compute the classification cost. Contrary to the loss, we don't use the NLL,
-# # but approximate it in 1 - proba[target class].
-# # The 1 is a constant that doesn't change the matching, it can be ommitted.
-# cost_class = -out_prob[:, tgt_ids]
-#
-# # Compute the L1 cost between boxes
-# cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
-#
-# # Compute the giou cost betwen boxes
-# out_bbox = box_cxcywh_to_xyxy(out_bbox)
-# tgt_bbox = box_cxcywh_to_xyxy(tgt_bbox)
-# cost_giou = -generalized_box_iou(out_bbox, tgt_bbox)
-#
-# indices = matcher(outputs, ty)
-#
-# loss_dict = criterion(outputs, ty)
-# weight_dict = criterion.weight_dict
-# losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
 
 # %% PREPARE OUTPUTS
 Path(args.output_dir).mkdir(parents=True, exist_ok=True)
@@ -249,7 +219,11 @@ if args.resume:
             args.resume, map_location='cpu', check_hash=True)
     else:
         checkpoint = torch.load(args.resume, map_location='cpu')
-    model_without_ddp.load_state_dict(checkpoint['model'])
+        if args.num_classes != 91:
+            checkpoint["model"].pop("class_embed.bias")
+            checkpoint["model"].pop("class_embed.weight")
+
+    model_without_ddp.load_state_dict(checkpoint['model'], strict=False)
     if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
         optimizer.load_state_dict(checkpoint['optimizer'])
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
