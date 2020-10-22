@@ -87,6 +87,36 @@ torch.manual_seed(seed)
 np.random.seed(seed)
 random.seed(seed)
 
+# %% PREPARE DATA
+
+# TODO: Train on different dataset!
+
+dataset_train = CocoDetection(args.coco_path + "/train2017",
+                              args.coco_path + "/annotations/instances_train2017.json",
+                              transforms=make_coco_transforms("train"),
+                              return_masks=False)
+dataset_val = CocoDetection(args.coco_path + "/val2017",
+                            args.coco_path + "/annotations/instances_val2017.json",
+                            transforms=make_coco_transforms("val"),
+                            return_masks=False)
+
+base_ds = get_coco_api_from_dataset(dataset_val)
+
+if args.distributed:
+    sampler_train = DistributedSampler(dataset_train)
+    sampler_val = DistributedSampler(dataset_val, shuffle=False)
+else:
+    sampler_train = torch.utils.data.RandomSampler(dataset_train)
+    sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+
+batch_sampler_train = torch.utils.data.BatchSampler(
+    sampler_train, args.batch_size, drop_last=True)
+
+data_loader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train,
+                               collate_fn=utils.collate_fn, num_workers=args.num_workers)
+data_loader_val = DataLoader(dataset_val, args.batch_size, sampler=sampler_val,
+                             drop_last=False, collate_fn=utils.collate_fn, num_workers=args.num_workers)
+
 # %% BUILD MODEL
 position_embedding = build_position_encoding(args)
 train_backbone = args.lr_backbone > 0
@@ -148,33 +178,6 @@ param_dicts = [
 optimizer = torch.optim.AdamW(param_dicts, lr=args.lr,
                               weight_decay=args.weight_decay)
 lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_drop)
-
-# %% PREPARE DATA
-dataset_train = CocoDetection(args.coco_path + "/train2017",
-                              args.coco_path + "/annotations/instances_train2017.json",
-                              transforms=make_coco_transforms("train"),
-                              return_masks=False)
-dataset_val = CocoDetection(args.coco_path + "/val2017",
-                            args.coco_path + "/annotations/instances_val2017.json",
-                            transforms=make_coco_transforms("val"),
-                            return_masks=False)
-
-base_ds = get_coco_api_from_dataset(dataset_val)
-
-if args.distributed:
-    sampler_train = DistributedSampler(dataset_train)
-    sampler_val = DistributedSampler(dataset_val, shuffle=False)
-else:
-    sampler_train = torch.utils.data.RandomSampler(dataset_train)
-    sampler_val = torch.utils.data.SequentialSampler(dataset_val)
-
-batch_sampler_train = torch.utils.data.BatchSampler(
-    sampler_train, args.batch_size, drop_last=True)
-
-data_loader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train,
-                               collate_fn=utils.collate_fn, num_workers=args.num_workers)
-data_loader_val = DataLoader(dataset_val, args.batch_size, sampler=sampler_val,
-                             drop_last=False, collate_fn=utils.collate_fn, num_workers=args.num_workers)
 
 # %% PREPARE OUTPUTS
 Path(args.output_dir).mkdir(parents=True, exist_ok=True)
