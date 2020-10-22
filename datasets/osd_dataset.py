@@ -22,8 +22,9 @@ def read_instre_boxes(box_file):
 
 
 class OSDDataset(Dataset):
-    def __init__(self, class_dirs, query_transforms=None, target_transforms=None):
+    def __init__(self, class_dirs, labels, query_transforms=None, target_transforms=None):
         self.class_dirs = class_dirs
+        self.labels = labels
         self.query_transforms = query_transforms
         self.target_transforms = target_transforms
 
@@ -39,43 +40,43 @@ class OSDDataset(Dataset):
 
         chosen_pair_images = np.random.choice(dir_image_files, 2)
         image_filenames = [os.path.basename(os.path.splitext(img)[0]) for img in chosen_pair_images]
-        chosen_pair_labels = [os.path.join(dir_, fname + ".txt") for fname in image_filenames]
+        chosen_pair_boxes = [os.path.join(dir_, fname + ".txt") for fname in image_filenames]
 
         chosen_pair_images = [Image.open(imgfile) for imgfile in chosen_pair_images]
-        chosen_pair_labels = [read_instre_boxes(label_file) for label_file in chosen_pair_labels]
+        chosen_pair_boxes = [read_instre_boxes(label_file) for label_file in chosen_pair_boxes]
 
         # split to query and target
         query_img, target_img = chosen_pair_images
-        query_labels, target_labels = chosen_pair_labels
+        query_boxes, target_boxes = chosen_pair_boxes
 
         # prepare query
-        query_labels = torch.tensor(query_labels).reshape(-1, 4)
-        query_labels = box_xywh_to_xyxy(query_labels)
+        query_boxes = torch.tensor(query_boxes).reshape(-1, 4)
+        query_boxes = box_xywh_to_xyxy(query_boxes)
 
-        # crop to query patch
-        idx = torch.randint(0, len(query_labels), [1])[0]
-        box_to_crop = query_labels[idx].numpy()
+        ## crop to query patch
+        idx = torch.randint(0, len(query_boxes), [1])[0]
+        box_to_crop = query_boxes[idx].numpy()
         query_img = query_img.crop(box_to_crop)
 
-        query_labels = {"boxes": query_labels,
-                        "labels": torch.tensor([item], dtype=torch.int64).repeat(len(query_labels))}
+        label = torch.tensor([self.labels[item]], dtype=torch.int64)
+        query_boxes = {"boxes": query_boxes,  # bounding boxes are only kept to comply with the original augmentations
+                        "labels": label.repeat(len(query_boxes))}
 
         # prepare target
-        target_labels = torch.tensor(target_labels).reshape(-1, 4)
-        target_labels = box_xywh_to_xyxy(target_labels)
-        target_labels[:, 2:] += target_labels[:, :2]
-        target_labels[:, 0::2].clamp_(min=0, max=target_img.width)
-        target_labels[:, 1::2].clamp_(min=0, max=target_img.height)
-        target_labels = {"boxes": target_labels,
-                         "labels": torch.tensor([item], dtype=torch.int64).repeat(len(target_labels))}
+        target_boxes = torch.tensor(target_boxes).reshape(-1, 4)
+        target_boxes = box_xywh_to_xyxy(target_boxes)
+        target_boxes = {"boxes": target_boxes,
+                         "labels": label.repeat(len(target_boxes))}
 
+
+        # apply augmentations
         if self.query_transforms is not None:
-            query_img, query_labels = self.query_transforms(query_img, query_labels)
-            target_img, target_labels = self.target_transforms(target_img, target_labels)
+            query_img, query_boxes = self.query_transforms(query_img, query_boxes)
+            target_img, target_boxes = self.target_transforms(target_img, target_boxes)
 
-        # overwrite default label dict
-        query_labels = {"label": item}
+        # overwrite default label dict (remove bounding boxes now that augmentation has been performed).
+        query_boxes = {"label": item}
 
-        sample = {"queries": (query_img, query_labels),
-                  "targets": (target_img, target_labels)}
+        sample = {"queries": (query_img, query_boxes),
+                  "targets": (target_img, target_boxes)}
         return sample

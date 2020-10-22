@@ -24,23 +24,19 @@ NUM_WORKERS = 2
 class_dirs_train = glob.glob(os.path.join(TRAIN_PATH, "*/"))
 class_dirs_val = glob.glob(os.path.join(TEST_PATH, "*/"))
 
+train_labels = list(range(len(class_dirs_train)))
+val_labels = list(range(len(class_dirs_val)))
+
 dataset_train = OSDDataset(class_dirs_train,
+                           labels=train_labels,
                            query_transforms=make_coco_transforms_query("train"),
                            target_transforms=make_coco_transforms_target("train")
                            )
 dataset_val = OSDDataset(class_dirs_val,
+                         labels=val_labels,
                          query_transforms=make_coco_transforms_query("val"),
                          target_transforms=make_coco_transforms_target("val")
                          )
-
-"""
-File "/datadrive/crr/workspace/detr/models/matcher.py", line 74, in forward
-    cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox))
-  File "/datadrive/crr/workspace/detr/util/box_ops.py", line 51, in generalized_box_iou
-    assert (boxes1[:, 2:] >= boxes1[:, :2]).all()
-
-"""
-
 
 # %%
 if DISTRIBUTED:
