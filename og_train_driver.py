@@ -26,7 +26,7 @@ class Args:
     position_embedding = "sine"
 
     # transformer
-    num_classes = 91
+    num_classes = 64 #91
     enc_layers = 6
     dec_layers = 6
     dim_feedforward = 2048
@@ -37,12 +37,12 @@ class Args:
     pre_norm = False
 
     # training
-    batch_size = 2
-    epochs = 150  # 300
+    batch_size = 4
+    epochs = 300
     lr = 1e-4
     lr_backbone = 1e-5
     weight_decay = 1e-4
-    lr_drop = 100  # 200
+    lr_drop = 200
     clip_max_norm = 0.1
 
     # resume = "detr-r50-e632da11.pth"
@@ -60,9 +60,10 @@ class Args:
 
     # data
     #   (coco)
-    coco_path = "/datadrive/crr/datasets/coco"
+    # coco_path = "/datadrive/crr/datasets/coco"
+    coco_path = "/datadrive/crr/datasets/synthetic_fruit"
 
-    output_dir = ""
+    output_dir = "outputs/og/fruit"
     device = "cuda"
     seed = 42
     start_epoch = 0

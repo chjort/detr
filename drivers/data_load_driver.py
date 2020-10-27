@@ -11,7 +11,8 @@ NUM_WORKERS = 2
 distributed = False
 
 # COCO_PATH = "/datadrive/crr/datasets/coco"
-COCO_PATH = "/home/ch/datasets/coco"
+# COCO_PATH = "/home/ch/datasets/coco"
+COCO_PATH = "/home/ch/datasets/synthetic_fruit"
 
 dataset_train = CocoDetection(COCO_PATH + "/train2017",
                               COCO_PATH + "/annotations/instances_train2017.json",
@@ -39,8 +40,19 @@ data_loader_val = DataLoader(dataset_val, BATCH_SIZE, sampler=sampler_val,
                              drop_last=False, collate_fn=utils.collate_fn, num_workers=NUM_WORKERS)
 
 # %%
+raw_train_it = iter(dataset_train)
+raw_val_it = iter(dataset_val)
+
 train_it = iter(data_loader_train)
 val_it = iter(data_loader_val)
+
+# %%
+x, y = next(raw_val_it)
+
+img = x
+box = y["boxes"]
+
+plot_results(img, box)
 
 # %%
 x, y = next(val_it)
